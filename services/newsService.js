@@ -1,77 +1,91 @@
-const API_KEY = "e21f2c537dd44915a1267f8ec39fc4da"; // User: Replace with World News API Key
-const BASE_URL = "https://api.worldnewsapi.com/search-news";
+import { XMLParser } from 'fast-xml-parser';
+
+const RSS_BASE = "https://rss.nytimes.com/services/xml/rss/nyt";
 
 export const fetchNews = async (category = 'top') => {
-    if (API_KEY === "YOUR_WORLD_NEWS_API_KEY") {
-        console.warn("World News API Key is missing. Please add it to newsService.js");
-        return [];
-    }
-
     try {
-        // Map app categories to World News API categories
+        // Map app categories to NYT RSS feeds
         const categoryMap = {
-            'top': '', // No category = mixed top news
-            'business': 'business',
-            'tech': 'technology',
-            'politics': 'politics',
-            'local': '', // World News API doesn't have local, falls back to general US news
-            'science': 'science',
-            'health': 'health',
-            'entertainment': 'entertainment',
-            'sports': 'sports'
+            'top': 'HomePage.xml',
+            'business': 'Business.xml',
+            'tech': 'Technology.xml',
+            'politics': 'Politics.xml',
+            'local': 'US.xml', // Fallback
+            'science': 'Science.xml',
+            'health': 'Health.xml',
+            'entertainment': 'Arts.xml', // Mapping "Entertainment" to "Arts" as requested
+            'sports': 'Sports.xml'
         };
 
-        const apiCategory = categoryMap[category] || '';
+        const feedFile = categoryMap[category] || 'HomePage.xml';
+        const url = `${RSS_BASE}/${feedFile}`;
 
-        // Build query parameters
-        const params = new URLSearchParams({
-            'source-countries': 'us',
-            'language': 'en',
-            'number': '15', // Limit
+        const response = await fetch(url);
+        const xmlText = await response.text();
+
+        const parser = new XMLParser({
+            ignoreAttributes: false,
+            attributeNamePrefix: "@_"
+        });
+        const jsonObj = parser.parse(xmlText);
+
+        // RSS structure: rss -> channel -> item[]
+        const items = jsonObj.rss?.channel?.item || [];
+        // Ensure items is an array and Sort by PubDate (Newest First)
+        let articles = Array.isArray(items) ? items : [items];
+
+        articles.sort((a, b) => {
+            const dateA = new Date(a.pubDate);
+            const dateB = new Date(b.pubDate);
+            return dateB - dateA; // Descending
         });
 
-        if (apiCategory) {
-            params.append('categories', apiCategory);
-        }
+        return articles.slice(0, 15).map((item, index) => {
+            // Extract image from media:content or media:group
+            // fast-xml-parser handles namespaced tags like "media:content" 
+            // Check structure console.log if needed, usually it's item['media:content'] or item['media:group']
 
-        const url = `${BASE_URL}?${params.toString()}`;
+            let imageUrl = `https://picsum.photos/seed/${index + 100}/800/600`;
 
-        const response = await fetch(url, {
-            headers: {
-                'x-api-key': API_KEY
+            // NYT RSS often puts image in media:content within media:group or directly
+            // Key might be "media:content" or "media:group"
+            const mediaContent = item['media:content'];
+            const mediaGroup = item['media:group'];
+
+            if (mediaContent) {
+                // If it's an array, take the biggest/last one, or first
+                const target = Array.isArray(mediaContent) ? mediaContent[mediaContent.length - 1] : mediaContent;
+                imageUrl = target['@_url'] || imageUrl;
+            } else if (mediaGroup && mediaGroup['media:content']) {
+                const groupContent = mediaGroup['media:content'];
+                const target = Array.isArray(groupContent) ? groupContent[groupContent.length - 1] : groupContent;
+                imageUrl = target['@_url'] || imageUrl;
             }
-        });
 
-        const data = await response.json();
-        const articles = data.news || [];
-
-        return articles.map((item, index) => {
-            // World News API fields: id, title, text, summary, url, image, publish_date
-
-            // Clean up text content
-            const cleanDescription = item.summary ? stripHtml(item.summary) : "";
-            const cleanContent = item.text ? stripHtml(item.text) : cleanDescription;
-            const readTime = calculateReadTime((item.text || item.summary || "") + " " + item.title);
+            const cleanDescription = item.description ? stripHtml(item.description) : "";
+            const title = item.title || "";
+            const link = item.link || "";
+            const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
 
             return {
-                id: item.id?.toString() || index.toString(),
-                title: item.title,
-                summary: cleanDescription.slice(0, 150) + (cleanDescription.length > 150 ? '...' : ''),
+                id: item.guid?.['#text'] || link || index.toString(),
+                title: title,
+                summary: cleanDescription,
                 category: category === 'top' ? 'Top News' : category.charAt(0).toUpperCase() + category.slice(1),
-                timestamp: timeSince(new Date(item.publish_date)),
-                image: item.image || `https://picsum.photos/seed/${index}/800/1200`,
-                readTime: readTime,
+                timestamp: timeSince(pubDate),
+                image: imageUrl,
+                readTime: calculateReadTime(title + " " + cleanDescription),
                 details: {
-                    whatHappened: item.title,
-                    whyItMatters: cleanDescription, // World News API doesn't separate this, reusing summary
-                    source: item.author || "World News" // Sometimes fields are 'authors' array
+                    whatHappened: title,
+                    whyItMatters: cleanDescription, // RSS feeds usually just have description
+                    source: "The New York Times"
                 },
-                url: item.url
+                url: link
             };
         });
 
     } catch (error) {
-        console.error("Error fetching news:", error);
+        console.error("Error fetching RSS news:", error);
         return [];
     }
 };

@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Bookmark, Clock, Share2 } from 'lucide-react-native';
 import React, { memo } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import Animated, { Extrapolation, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -71,47 +71,49 @@ const NewsCard = ({ story, onDetailsPress, onBookmarkPress, onSharePress, isBook
     });
 
     return (
-        <View style={[styles.container, { height }]}>
-            <Animated.Image
-                source={{ uri: story.image }}
-                style={[styles.image, rImageStyle]}
-                resizeMode="cover"
-            />
+        <TouchableWithoutFeedback onPress={onDetailsPress}>
+            <View style={[styles.container, { height }]}>
+                <Animated.Image
+                    source={{ uri: story.image }}
+                    style={[styles.image, rImageStyle]}
+                    resizeMode="cover"
+                />
 
-            {/* Full screen gradient for text legibility */}
-            <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.95)']}
-                locations={[0.4, 0.7, 1]}
-                style={styles.gradient}
-            />
+                {/* Full screen gradient for text legibility */}
+                <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.95)']}
+                    locations={[0.4, 0.7, 1]}
+                    style={styles.gradient}
+                />
 
-            <Animated.View style={[styles.content, rContentStyle]}>
-                {/* Read Time Tag */}
-                <View style={styles.readTimeRow}>
-                    <Clock size={14} color="#ccc" style={{ marginRight: 4 }} />
-                    <Text style={styles.readTimeText}>{story.timestamp}</Text>
-                </View>
+                <Animated.View style={[styles.content, rContentStyle]}>
+                    {/* Read Time Tag */}
+                    <View style={styles.readTimeRow}>
+                        <Clock size={14} color="#ccc" style={{ marginRight: 4 }} />
+                        <Text style={styles.readTimeText}>{story.timestamp}</Text>
+                    </View>
 
-                {/* Title */}
-                <Text style={styles.title} numberOfLines={3}>{story.title}</Text>
+                    {/* Title */}
+                    <Text style={styles.title} numberOfLines={3}>{story.title}</Text>
 
-                {/* Summary */}
-                <Text style={styles.summary} numberOfLines={3}>{story.summary}</Text>
+                    {/* Summary */}
+                    <Text style={styles.summary} numberOfLines={3}>{story.summary}</Text>
 
-                {/* Bottom Actions Row */}
-                <View style={styles.actionsRow}>
-                    <TouchableOpacity onPress={onBookmarkPress} style={styles.actionBtn}>
-                        <Bookmark size={20} color={isBookmarked ? "#fff" : "#ccc"} fill={isBookmarked ? "#fff" : "transparent"} />
-                        <Text style={[styles.actionText, isBookmarked && { color: '#fff' }]}>{isBookmarked ? 'Bookmarked' : 'Bookmark'}</Text>
-                    </TouchableOpacity>
+                    {/* Bottom Actions Row */}
+                    <View style={styles.actionsRow}>
+                        <TouchableOpacity onPress={onBookmarkPress} style={styles.actionBtn}>
+                            <Bookmark size={20} color={isBookmarked ? "#fff" : "#ccc"} fill={isBookmarked ? "#fff" : "transparent"} />
+                            <Text style={[styles.actionText, isBookmarked && { color: '#fff' }]}>{isBookmarked ? 'Bookmarked' : 'Bookmark'}</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity onPress={onSharePress} style={styles.actionBtn}>
-                        <Share2 size={20} color="#ccc" />
-                        <Text style={styles.actionText}>Share</Text>
-                    </TouchableOpacity>
-                </View>
-            </Animated.View>
-        </View>
+                        <TouchableOpacity onPress={onSharePress} style={styles.actionBtn}>
+                            <Share2 size={20} color="#ccc" />
+                            <Text style={styles.actionText}>Share</Text>
+                        </TouchableOpacity>
+                    </View>
+                </Animated.View>
+            </View>
+        </TouchableWithoutFeedback>
     );
 };
 
